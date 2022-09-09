@@ -29,7 +29,6 @@ class WindowsHolder:
             ctypes.windll.user32.GetWindowInfo(w.hwnd, p)
             is_minimized = ctypes.windll.user32.IsIconic(w.hwnd)
             is_active = ctypes.windll.user32.IsWindowVisible(w.hwnd)
-            has_rect = o.rcWindow.top != 0 or o.rcWindow.bottom != 0 or o.rcWindow.left != 0 or o.rcWindow.right != 0
             if(len(s.value) > 0 and (is_minimized or is_active)):
                 # real top windows
                 print(o.dwStyle , o.rcWindow.bottom, "==",s.value) 
