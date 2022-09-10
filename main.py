@@ -1,11 +1,9 @@
-from ctypes import wintypes
-import ctypes as ct
+""" Pywinman starter"""
+import logging
+import logging.config
 from singleton import Singleton
 from monitorsholder import MonitorHolder
 from windows_holder import WindowsHolder
-import time
-import logging
-import logging.config
 
 
 LOGGING_CONFIG = {
@@ -38,12 +36,11 @@ LOGGING_CONFIG = {
 
 if __name__ == "__main__":
     logging.config.dictConfig(LOGGING_CONFIG)
-    log = logging.getLogger(__name__)
-    this = Singleton()
-    if(this.is_already_running()):
-        log.debug("Scriptis already running")
+    LOG = logging.getLogger(__name__)
+    if Singleton().is_already_running():
+        LOG.debug("Pywinman is already running")
         exit()
-    log.warning("Starting Pywinman")
+    LOG.warning("Starting Pywinman")
     MonitorHolder()
     WindowsHolder()
 else:
