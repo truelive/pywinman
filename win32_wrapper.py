@@ -21,6 +21,7 @@ class Win32Wrapper:
         self.WINEVENT_OUTOFCONTEXT = 0x0000
         self.WINEVENT_SKIPOWNPROCESS = 0x0002
         self.WM_HOTKEY = 0x0312
+        self.WT_TIMER = 0x0113
 
     def RegisterHotKey(self, mod=0x01, key=0x4F):
         res = ctypes.windll.user32.RegisterHotKey(None, 133, mod | 0x4000, key) # 0x42 -'b' 0x08 - WINKEY
@@ -31,7 +32,9 @@ class Win32Wrapper:
         res = ctypes.windll.user32.RegisterHotKey(None, 133) # 0x42 -'b' 0x08 - WINKEY
         if res == 0:
             self.log.error("RegisterHotKey %s ", ctypes.WinError(self.GetLastError()))
+
     def WinListenKeysHookLoop(self, stop_flag):
+        timer = ctypes.windll.user32.SetTimer(None, None, 1000, None)
         ctypes.windll.ole32.CoInitialize(0)
         msg = ctypes.wintypes.MSG()
         self.log.debug("calling GetMessageW  first")
@@ -39,19 +42,20 @@ class Win32Wrapper:
         self.log.debug("Entering GetMessageW loop")
         while not stop_flag() and res != 0:
             if msg.message == self.WM_HOTKEY:
-                ##self.log.debug("WM_HOTKEY %s", msg.message)
+                self.log.debug("WM_HOTKEY %s", msg.message)
                 self.TranslateMessageW(msg)
                 ctypes.windll.user32.DispatchMessageW(msg)
             res = ctypes.windll.user32.GetMessageW(ctypes.byref(msg), 0, 0, 0)
-            self.log.debug("NExtMessage")
         ctypes.windll.ole32.CoUninitialize()
-        self.log.warning('Stopped receiving new window change events. Exiting...')
+        ctypes.windll.user32.KillTimer(None, timer)
+        self.log.warning('Stopped receiving new hotkey events. Exiting...')
         return 0
 
     def WinEventHookLoop(self, callback, stop_flag):
         """ Creates a win32 hook that calls for a call back when gets triggered.
         Should be called in separate thread
         """
+        timer = ctypes.windll.user32.SetTimer(None, None, 1000, None)
         ctypes.windll.ole32.CoInitialize(0)
         self.log.debug("ole32 init")
         win_event_fun_factory = ctypes.WINFUNCTYPE(
@@ -87,13 +91,14 @@ class Win32Wrapper:
         res = ctypes.windll.user32.GetMessageW(ctypes.byref(msg), 0, 0, 0)
         self.log.debug("Entering GetMessageW loop")
         while not stop_flag() and res != 0:
-            self.log.debug("GetMessage" + msg.message)
-            self.TranslateMessageW(msg)
-            ctypes.windll.user32.DispatchMessageW(msg)
+            if(msg.message != self.WT_TIMER):
+                self.TranslateMessageW(msg)
+                ctypes.windll.user32.DispatchMessageW(msg)
             res = ctypes.windll.user32.GetMessageW(ctypes.byref(msg), 0, 0, 0)
 
         self.log.warning('Stopped receiving new window change events. Exiting...')
         ctypes.windll.user32.UnhookWinEvent(hook)
+        ctypes.windll.user32.KillTimer(None, timer)
         ctypes.windll.ole32.CoUninitialize()
         return hook
 

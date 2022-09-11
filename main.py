@@ -1,11 +1,15 @@
 """ Pywinman starter"""
+import sys
+import signal
 import logging
 import logging.config
+import time
 from singleton import Singleton
 from monitorsholder import MonitorHolder
 from windows_holder import WindowsHolder
 from hotkey_listener import HotkeyListener
 from win32_wrapper import Win32Wrapper
+
 
 
 LOGGING_CONFIG = {
@@ -44,7 +48,21 @@ if __name__ == "__main__":
         exit()
     LOG.warning("Starting Pywinman")
     MonitorHolder()
-    #WindowsHolder()
-    HotkeyListener(Win32Wrapper()).d_thread.join()
+    w_holder = WindowsHolder(Win32Wrapper())
+    holder = HotkeyListener(Win32Wrapper())
+    def signal_handler(sig, frame):
+        LOG.info("Closing Pywinman")
+        holder.stop()
+        LOG.info("hotkey holder stopped")
+        w_holder.stop()
+        LOG.info("window holder stopped")
+        sys.exit(0)
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    print('Press Ctrl+C')
+    # EventQueue listener
+    time.sleep(30)
+    holder.stop()
+    w_holder.stop()
 else:
     exit()

@@ -53,6 +53,11 @@ class WindowsGetFocusedListener:
         self.d_thread = threading.Thread(target=run, args=(lambda: self.stop_flag,))
         self.d_thread.setDaemon(True)
         self.d_thread.start()
+    
+    def stop(self):
+        self.log.info("Stopping GetFocused listener")
+        self.stop_flag = True
+        self.d_thread.join()
 
     def handle(self, *args, **kwargs):
         """ should be called in win32hook """
@@ -74,4 +79,4 @@ class WindowsGetFocusedListener:
         self.__handlers.append(handler)
 
     def __del__(self):
-        self.stop_flag = True
+        self.stop()
