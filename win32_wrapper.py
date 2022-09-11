@@ -12,6 +12,7 @@ class Win32Wrapper:
         self.GetWindowInfo = ctypes.windll.user32.GetWindowInfo
         self.GetLastError = ctypes.windll.kernel32.GetLastError 
         self.SetLastError = ctypes.windll.kernel32.SetLastError 
+        self.TranslateMessageW = ctypes.windll.user32.TranslateMessage
 
         # Look here for DWORD event constants
         # http://stackoverflow.com/questions/15927262/convert-dword-event-constant-from-wineventproc-to-name-in-c-sharp
@@ -19,6 +20,33 @@ class Win32Wrapper:
         self.EVENT_SYSTEM_FOREGROUND = 0x0003
         self.WINEVENT_OUTOFCONTEXT = 0x0000
         self.WINEVENT_SKIPOWNPROCESS = 0x0002
+        self.WM_HOTKEY = 0x0312
+
+    def RegisterHotKey(self, mod=0x01, key=0x4F):
+        res = ctypes.windll.user32.RegisterHotKey(None, 133, mod | 0x4000, key) # 0x42 -'b' 0x08 - WINKEY
+        if res == 0:
+            self.log.error("RegisterHotKey %s ", ctypes.WinError(self.GetLastError()))
+
+    def UnregisterHotKey(self):
+        res = ctypes.windll.user32.RegisterHotKey(None, 133) # 0x42 -'b' 0x08 - WINKEY
+        if res == 0:
+            self.log.error("RegisterHotKey %s ", ctypes.WinError(self.GetLastError()))
+    def WinListenKeysHookLoop(self, stop_flag):
+        ctypes.windll.ole32.CoInitialize(0)
+        msg = ctypes.wintypes.MSG()
+        self.log.debug("calling GetMessageW  first")
+        res = ctypes.windll.user32.GetMessageW(ctypes.byref(msg), 0, 0, 0)
+        self.log.debug("Entering GetMessageW loop")
+        while not stop_flag() and res != 0:
+            if msg.message == self.WM_HOTKEY:
+                ##self.log.debug("WM_HOTKEY %s", msg.message)
+                self.TranslateMessageW(msg)
+                ctypes.windll.user32.DispatchMessageW(msg)
+            res = ctypes.windll.user32.GetMessageW(ctypes.byref(msg), 0, 0, 0)
+            self.log.debug("NExtMessage")
+        ctypes.windll.ole32.CoUninitialize()
+        self.log.warning('Stopped receiving new window change events. Exiting...')
+        return 0
 
     def WinEventHookLoop(self, callback, stop_flag):
         """ Creates a win32 hook that calls for a call back when gets triggered.
@@ -60,7 +88,7 @@ class Win32Wrapper:
         self.log.debug("Entering GetMessageW loop")
         while not stop_flag() and res != 0:
             self.log.debug("GetMessage" + msg.message)
-            ctypes.windll.user32.TranslateMessageW(msg)
+            self.TranslateMessageW(msg)
             ctypes.windll.user32.DispatchMessageW(msg)
             res = ctypes.windll.user32.GetMessageW(ctypes.byref(msg), 0, 0, 0)
 

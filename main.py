@@ -4,6 +4,8 @@ import logging.config
 from singleton import Singleton
 from monitorsholder import MonitorHolder
 from windows_holder import WindowsHolder
+from hotkey_listener import HotkeyListener
+from win32_wrapper import Win32Wrapper
 
 
 LOGGING_CONFIG = {
@@ -42,6 +44,7 @@ if __name__ == "__main__":
         exit()
     LOG.warning("Starting Pywinman")
     MonitorHolder()
-    WindowsHolder()
+    #WindowsHolder()
+    HotkeyListener(Win32Wrapper()).d_thread.join()
 else:
     exit()
