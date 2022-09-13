@@ -13,17 +13,24 @@ EVENT_SYSTEM_FOREGROUND = 0x0003
 WINEVENT_SKIPOWNPROCESS = 0x0002
 
 class WindowsHolder:
-    def __init__(self, win32):
+    """ Holds all resizable and trackable win32 windows """
+    def __init__(self, win32, event_q):
         self.log = logging.getLogger(".".join([__name__, self.__class__.__name__]))
-        self.windows = []
+        self.windows = {}
         # Window GetFocused, also need GetMinimized\Closed\GoesFullScreen
-        self.window_listener = WindowsGetFocusedListener()
-        self.window_listener.register_handler(WindowGetFocusedHandler())
+        self.window_listener = WindowsGetFocusedListener(win32)
+        self.window_listener.register_handler(WindowGetFocusedHandler(event_q))
         def _monitorEnumProc(hWnd, lParam):
-            self.windows.append(Window(hWnd))
+            self.windows[hWnd] = Window(hWnd)
             return True # continue enumeration
         win32.EnumWindows(_monitorEnumProc)
         win32.PrintWindows(self.windows)
+
+    def handle_msg(self, winmsg):
+        if not winmsg.hwnd in self.windows:
+            self.log.debug("Adding new window %s %s", winmsg.hwnd, winmsg.title)
+            self.windows[winmsg.hwnd] = Window(winmsg.hwnd)
+        pass
     
     def stop(self):
         self.log.info("Stopping Windows holder")

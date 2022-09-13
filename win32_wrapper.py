@@ -33,7 +33,7 @@ class Win32Wrapper:
         if res == 0:
             self.log.error("RegisterHotKey %s ", ctypes.WinError(self.GetLastError()))
 
-    def WinListenKeysHookLoop(self, stop_flag):
+    def WinListenKeysHookLoop(self, stop_flag, event_q):
         timer = ctypes.windll.user32.SetTimer(None, None, 1000, None)
         ctypes.windll.ole32.CoInitialize(0)
         msg = ctypes.wintypes.MSG()
@@ -42,6 +42,7 @@ class Win32Wrapper:
         self.log.debug("Entering GetMessageW loop")
         while not stop_flag() and res != 0:
             if msg.message == self.WM_HOTKEY:
+                event_q.put(msg.message, 0)
                 self.log.debug("WM_HOTKEY %s", msg.message)
                 self.TranslateMessageW(msg)
                 ctypes.windll.user32.DispatchMessageW(msg)
@@ -116,22 +117,22 @@ class Win32Wrapper:
         p = ctypes.byref(o)
         for w in windows:
             self.SetLastError(0)
-            length = self.GetWindowTextLength(w.hwnd)
+            length = self.GetWindowTextLength(w)
             err = self.GetLastError()
             if(err != 0):
                 self.log.error("GetWindowTextLength " + ctypes.WinError(err))
             s = ctypes.create_unicode_buffer(length+1)
-            res = self.GetWindowText(w.hwnd, s, length+1)
+            res = self.GetWindowText(w, s, length+1)
             if res == 0:
                  err = self.GetLastError()
                  if(err != 0):
                     self.log.error("GetWindowText " + ctypes.WinError(err))
-            res = self.GetWindowInfo(w.hwnd, p)
+            res = self.GetWindowInfo(w, p)
             if res == 0:
                  err = self.GetLastError()
                  self.log.error("GetWindowInfo" + ctypes.WinError(err))
-            is_minimized = self.IsIconic(w.hwnd)
-            is_active = self.IsWindowVisible(w.hwnd)
+            is_minimized = self.IsIconic(w)
+            is_active = self.IsWindowVisible(w)
             if(length > 0 and (is_minimized or is_active)):
                 self.log.debug("%s %s -- %s", o.dwStyle, o.rcWindow.bottom, s.value) 
                 # TODO store filtered windows

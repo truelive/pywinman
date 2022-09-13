@@ -1,13 +1,15 @@
 """ Pywinman starter"""
-import sys
 import signal
 import logging
 import logging.config
-import time
+import queue
+from EventQueue import EventQueue
 from singleton import Singleton
 from monitorsholder import MonitorHolder
 from windows_holder import WindowsHolder
+from windows_hook import WindowMessage
 from hotkey_listener import HotkeyListener
+from hotkey_listener import HotkeyMessage
 from win32_wrapper import Win32Wrapper
 
 
@@ -47,22 +49,34 @@ if __name__ == "__main__":
         LOG.debug("Pywinman is already running")
         exit()
     LOG.warning("Starting Pywinman")
+    evns = EventQueue(queue.SimpleQueue())
     MonitorHolder()
-    w_holder = WindowsHolder(Win32Wrapper())
-    holder = HotkeyListener(Win32Wrapper())
+    w_holder = WindowsHolder(Win32Wrapper(), evns)
+    holder = HotkeyListener(Win32Wrapper(), evns)
+    holder.stop_flag
+    stop_flag = False
     def signal_handler(sig, frame):
-        LOG.info("Closing Pywinman")
-        holder.stop()
-        LOG.info("hotkey holder stopped")
-        w_holder.stop()
-        LOG.info("window holder stopped")
-        sys.exit(0)
+        LOG.warning("EXIT IS CALLED")
+        global stop_flag
+        stop_flag = True
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
     print('Press Ctrl+C')
     # EventQueue listener
-    time.sleep(30)
+    while not stop_flag:
+        res = evns.get()
+        if res is not None:
+            if isinstance(res, WindowMessage):
+                LOG.debug(res)
+                w_holder.handle_msg(res)
+                pass
+            if isinstance(res, HotkeyMessage):
+                # action
+                pass
+    LOG.info("Closing Pywinman")
     holder.stop()
+    LOG.info("hotkey holder stopped")
     w_holder.stop()
+    LOG.info("window holder stopped")
 else:
     exit()
