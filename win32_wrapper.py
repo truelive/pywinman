@@ -13,11 +13,12 @@ class Win32Wrapper:
         self.GetLastError = ctypes.windll.kernel32.GetLastError 
         self.SetLastError = ctypes.windll.kernel32.SetLastError 
         self.TranslateMessageW = ctypes.windll.user32.TranslateMessage
-
+        # ctypes to wintypes and docs https://github.com/kdschlosser/pyWinDataTypes/blob/cb7b6b974fc9334faad47ecd4fdcac16352bb043/pyWinDataTypes/__init__.py#L71
         # Look here for DWORD event constants
         # http://stackoverflow.com/questions/15927262/convert-dword-event-constant-from-wineventproc-to-name-in-c-sharp
         self.EVENT_SYSTEM_DIALOGSTART = 0x0010
         self.EVENT_SYSTEM_FOREGROUND = 0x0003
+        self.EVENT_OBJECT_DESTROY = 0x8001
         self.WINEVENT_OUTOFCONTEXT = 0x0000
         self.WINEVENT_SKIPOWNPROCESS = 0x0002
         self.WM_HOTKEY = 0x0312
@@ -71,12 +72,17 @@ class Win32Wrapper:
         )
         self.log.debug("Win32 callback factory init")
         # check for callback format ?
-        win32_callback = win_event_fun_factory(callback)
+        def win_callback(hWinEventHook, event, hwnd, idObject, idChild, dwEventThread, dwmsEventTime):
+            if event == self.EVENT_SYSTEM_FOREGROUND:
+                callback(hWinEventHook, event, hwnd, idObject, idChild, dwEventThread, dwmsEventTime)
+            elif event == self.EVENT_OBJECT_DESTROY and idObject == 0 and idChild == 0:
+                print("HWND %s - %s - %s - %s closed" % (hwnd,idObject, idChild, dwEventThread))
+        win32_callback = win_event_fun_factory(win_callback)
         self.log.debug("Win32 callback create")
         ctypes.windll.user32.SetWinEventHook.restype = wintypes.HANDLE
         hook = ctypes.windll.user32.SetWinEventHook(
             self.EVENT_SYSTEM_FOREGROUND,
-            self.EVENT_SYSTEM_FOREGROUND,
+            self.EVENT_OBJECT_DESTROY,
             0,
             win32_callback,
             0,
@@ -86,11 +92,14 @@ class Win32Wrapper:
         self.log.debug("SetWinEventHook called ")
         if hook == 0:
             self.log.error("SetWinEventHook failed to execute")
+            err = self.GetLastError()
+            if(err != 0):
+                self.log.error("SetWinEventHook " + str(ctypes.WinError(err)))
             return hook
         msg = ctypes.wintypes.MSG()
-        self.log.debug("calling GetMessageW  first")
+        self.log.debug("calling GetMessageWindow  first")
         res = ctypes.windll.user32.GetMessageW(ctypes.byref(msg), 0, 0, 0)
-        self.log.debug("Entering GetMessageW loop")
+        self.log.debug("Entering GetMessageWindow loop")
         while not stop_flag() and res != 0:
             if(msg.message != self.WT_TIMER):
                 self.TranslateMessageW(msg)
